@@ -425,7 +425,10 @@ function sendEpworthEmail(){
 function sendDailyEmail(entry){
   if(EMAILJS_SERVICE==='YOUR_SERVICE_ID') return;
   emailjs.init(EMAILJS_PUBLIC_KEY);
-  const msg=`--- Entry Info ---
+  const msg=`Participant: ${entry.name}
+ID: ${entry.pid}
+
+--- Entry Info ---
 Date: ${entry.date}
 Time submitted: ${entry.submitTime}
 Day: ${entry.day} of 14\n
