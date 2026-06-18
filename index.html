@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sleep Study Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f0f4f8;color:#1a202c;min-height:100vh}
+.app{max-width:640px;margin:0 auto;padding:1.5rem 1rem 3rem}
+h1{font-size:1.4rem;font-weight:600;color:#2d3748;margin-bottom:.25rem}
+.subtitle{font-size:.9rem;color:#718096;margin-bottom:1.5rem}
+.card{background:#fff;border-radius:14px;padding:1.5rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.section-label{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#a0aec0;margin-bottom:1rem}
+.field{margin-bottom:1.25rem}
+.field label{display:block;font-size:.88rem;font-weight:500;color:#4a5568;margin-bottom:.35rem}
+.field input[type=text],.field input[type=email],.field input[type=number],.field select{width:100%;padding:.55rem .75rem;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.95rem;color:#2d3748;background:#fff;transition:border .15s}
+.field input:focus,.field select:focus{outline:none;border-color:#7c3aed}
+.hint{font-size:.78rem;color:#a0aec0;margin-top:.25rem}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* VAS slider */
+.vas-wrap{margin-top:.5rem}
+.vas-labels{display:flex;justify-content:space-between;font-size:.75rem;color:#a0aec0;margin-bottom:.4rem}
+.vas-labels span{max-width:45%;line-height:1.3}
+.vas-labels span:last-child{text-align:right}
+input[type=range].vas{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:3px;background:linear-gradient(to right,#7c3aed 0%,#7c3aed var(--pct,50%),#e2e8f0 var(--pct,50%),#e2e8f0 100%);outline:none;cursor:pointer}
+input[type=range].vas::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#7c3aed;border:3px solid #fff;box-shadow:0 1px 4px rgba(124,58,237,.35);cursor:pointer}
+input[type=range].vas::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#7c3aed;border:3px solid #fff;box-shadow:0 1px 4px rgba(124,58,237,.35);cursor:pointer}
+.vas-val{text-align:center;font-size:.82rem;font-weight:600;color:#7c3aed;margin-top:.35rem}
+
+.progress-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:1rem}
+.day-dot{aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:500;border:1.5px solid #e2e8f0;background:#f7fafc;color:#a0aec0}
+.day-dot.done{background:#f3e8ff;border-color:#7c3aed;color:#7c3aed}
+.day-dot.today{border-color:#7c3aed;color:#7c3aed;font-weight:700}
+.day-dot.today.done{background:#7c3aed;color:#fff}
+
+.btn{width:100%;padding:.75rem;border-radius:10px;border:none;font-size:1rem;font-weight:600;cursor:pointer;transition:all .15s;margin-top:.5rem}
+.btn-primary{background:#7c3aed;color:#fff}
+.btn-primary:hover{background:#6d28d9}
+.btn-primary:disabled{background:#c4b5fd;cursor:not-allowed}
+.btn-secondary{background:#f7fafc;color:#4a5568;border:1.5px solid #e2e8f0;width:auto;padding:.4rem 1rem}
+.btn-secondary:hover{background:#edf2f7}
+
+.toggle-row{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem}
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.slider-tog{position:absolute;inset:0;background:#e2e8f0;border-radius:12px;transition:.2s;cursor:pointer}
+.slider-tog:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+input:checked+.slider-tog{background:#7c3aed}
+input:checked+.slider-tog:before{transform:translateX(20px)}
+.toggle-label{font-size:.88rem;font-weight:500;color:#4a5568}
+
+.alert{padding:.75rem 1rem;border-radius:10px;font-size:.88rem;margin-bottom:1rem}
+.alert-success{background:#f0fff4;color:#276749;border:1px solid #9ae6b4}
+.alert-error{background:#fff5f5;color:#9b2c2c;border:1px solid #feb2b2}
+.alert-info{background:#f3e8ff;color:#553c9a;border:1px solid #d6bcfa}
+
+.escore{display:inline-block;background:#f3e8ff;color:#7c3aed;border-radius:8px;padding:.3rem .75rem;font-weight:700;font-size:1.1rem;margin-left:.5rem}
+.epworth-item{margin-bottom:1.2rem}
+.epworth-item p{font-size:.9rem;color:#4a5568;margin-bottom:.5rem;line-height:1.5}
+.chance-btns{display:flex;gap:6px;flex-wrap:wrap}
+.chance-btn{padding:.35rem .7rem;border-radius:7px;border:1.5px solid #e2e8f0;background:#fff;font-size:.8rem;color:#4a5568;cursor:pointer;transition:all .15s}
+.chance-btn.sel{background:#f3e8ff;border-color:#7c3aed;color:#7c3aed;font-weight:600}
+
+.setup-icon{font-size:2.5rem;text-align:center;margin-bottom:.75rem}
+.step-indicator{display:flex;gap:6px;justify-content:center;margin-bottom:1.5rem}
+.step-dot{width:8px;height:8px;border-radius:50%;background:#e2e8f0;transition:.2s}
+.step-dot.active{background:#7c3aed;width:24px;border-radius:4px}
+
+.complete-banner{text-align:center;padding:2rem 1rem}
+.complete-banner .emoji{font-size:3rem}
+.complete-banner h2{font-size:1.3rem;font-weight:600;color:#2d3748;margin:.75rem 0 .5rem}
+.complete-banner p{font-size:.9rem;color:#718096;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script>
+const EMAILJS_SERVICE='Sleep_Study';
+const EMAILJS_TEMPLATE='template_aoqwlvg';
+const EMAILJS_PUBLIC_KEY='OaTYPoshlVEuOLmFq';
+
+const EPWORTH=[
+  "Sitting and reading",
+  "Watching TV",
+  "Sitting, inactive in a public place (e.g., a theater or meeting)",
+  "As a passenger in a car for an hour without a break",
+  "Lying down to rest in the afternoon when circumstances permit",
+  "Sitting and talking to someone",
+  "Sitting quietly after a lunch without alcohol",
+  "In a car, while stopped for a few minutes in traffic"
+];
+const CHANCE=["Would never doze","Slight chance","Moderate chance","High chance"];
+
+const VAS_FIELDS=[
+  {key:'vas_onset',   label:'Time to fall asleep',           lo:'Fell asleep instantly',          hi:'Took hours to fall asleep'},
+  {key:'vas_cont',    label:'Sleep continuity',               lo:'Woke up constantly',             hi:'Slept straight through'},
+  {key:'vas_restore', label:'Restoration',                    lo:'Felt completely unrefreshed',    hi:'Felt fully refreshed'},
+  {key:'vas_relative',label:'Compared to a typical night',   lo:'Much worse than usual',          hi:'Much better than usual'},
+  {key:'vas_cognitive',label:'Mental clarity right now',     lo:'Mentally foggy and slow',        hi:'Sharp and clear-headed'},
+  {key:'vas_physical', label:'Physical restoration',         lo:'Body feels heavy and achy',      hi:'Body feels light and recovered'},
+];
+
+function load(k,d=null){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
+
+let state={
+  screen:'loading',
+  profile:load('slp_profile'),
+  epworth:load('slp_epworth'),
+  days:load('slp_days',{}),
+  alert:null,
+  epworthAnswers:Array(8).fill(null),
+  form:{hours:'',wakes:'',waketime:'',napdur:''},
+      vas:{vas_onset:50,vas_cont:50,vas_restore:50,vas_relative:50,vas_cognitive:50,vas_physical:50},
+  nap:false,
+};
+
+function init(){
+  if(!state.profile){state.screen='setup_profile'}
+  else if(!state.epworth){state.screen='setup_epworth'}
+  else{state.screen='home'}
+  render();
+}
+
+function render(){
+  const app=document.getElementById('app');
+  if(state.screen==='setup_profile') app.innerHTML=renderSetupProfile();
+  else if(state.screen==='setup_epworth') app.innerHTML=renderEpworth();
+  else if(state.screen==='home') app.innerHTML=renderHome();
+  else if(state.screen==='log') app.innerHTML=renderLog();
+  else if(state.screen==='done') app.innerHTML=renderDone();
+  attachEvents();
+  updateAllSliders();
+}
+
+function renderSetupProfile(){
+  const p=state.profile||{};
+  return `
+  <div class="step-indicator"><div class="step-dot active"></div><div class="step-dot"></div><div class="step-dot"></div></div>
+  <div class="card">
+    <div class="setup-icon">🌙</div>
+    <h1 style="text-align:center">Welcome to your sleep study</h1>
+    <p class="subtitle" style="text-align:center;margin-bottom:1.5rem">You'll log your sleep each morning for 14 days. Let's get you set up first.</p>
+    <div class="field"><label>Your first name</label><input type="text" id="f_name" placeholder="e.g. Alex" value="${p.name||''}"></div>
+    <div class="field"><label>Participant ID</label><input type="text" id="f_pid" placeholder="e.g. P001" value="${p.pid||''}"><div class="hint">Your researcher will provide this.</div></div>
+    <div class="field"><label>Researcher email</label><input type="email" id="f_email" placeholder="researcher@email.com" value="${p.email||''}"><div class="hint">Your responses will be sent here after each entry.</div></div>
+    <button class="btn btn-primary" id="btn_profile">Continue →</button>
+  </div>`;
+}
+
+function renderEpworth(){
+  const total=state.epworthAnswers.every(v=>v!==null)?state.epworthAnswers.reduce((a,b)=>a+b,0):null;
+  return `
+  <div class="step-indicator"><div class="step-dot"></div><div class="step-dot active"></div><div class="step-dot"></div></div>
+  <div class="card">
+    <div class="section-label">Epworth Sleepiness Scale</div>
+    <p style="font-size:.9rem;color:#4a5568;line-height:1.6;margin-bottom:1.25rem">How likely are you to doze off or fall asleep in these situations? Rate your <em>usual</em> way of life lately — not just how you feel today.</p>
+    ${EPWORTH.map((q,i)=>`
+    <div class="epworth-item">
+      <p><strong>${i+1}.</strong> ${q}</p>
+      <div class="chance-btns">
+        ${CHANCE.map((c,j)=>`<button class="chance-btn${state.epworthAnswers[i]===j?' sel':''}" data-ei="${i}" data-ev="${j}">${c}</button>`).join('')}
+      </div>
+    </div>`).join('')}
+    ${total!==null?`<div class="alert alert-info" style="margin-top:.5rem">Your ESS score: <span class="escore">${total}/24</span></div>`:''}
+    <button class="btn btn-primary" id="btn_epworth" ${total===null?'disabled':''}>Continue →</button>
+  </div>`;
+}
+
+function renderHome(){
+  const completed=Object.keys(state.days).length;
+  const today=getTodayKey();
+  const todayDone=!!state.days[today];
+  const allDone=completed>=14;
+  const dots=Array.from({length:14},(_,i)=>{
+    const k=getDayKey(i);
+    const done=!!state.days[k];
+    const isToday=k===today;
+    return `<div class="day-dot${done?' done':''}${isToday?' today':''}">${i+1}</div>`;
+  }).join('');
+  return `
+  <h1>Sleep Study</h1>
+  <p class="subtitle">Hi ${state.profile.name} · ${14-completed} day${14-completed!==1?'s':''} remaining</p>
+  ${state.alert?`<div class="alert alert-${state.alert.type}">${state.alert.msg}</div>`:''}
+  <div class="card">
+    <div class="section-label">14-day progress</div>
+    <div class="progress-grid">${dots}</div>
+    <p style="font-size:.82rem;color:#a0aec0">${completed} of 14 days logged</p>
+  </div>
+  ${allDone?`<div class="card complete-banner"><div class="emoji">🎉</div><h2>You did it!</h2><p>All 14 days complete. Thank you for participating — your data has been sent to your researcher after each entry.</p></div>`:`
+  <div class="card">
+    ${todayDone
+      ?`<div class="alert alert-success" style="margin-bottom:0">Today's entry is complete. Come back tomorrow morning!</div>`
+      :`<p style="font-size:.9rem;color:#4a5568;margin-bottom:1rem">Ready to log last night's sleep?</p>
+        <button class="btn btn-primary" id="btn_log">Log today's sleep →</button>`}
+  </div>`}
+
+    <p style="font-size:.85rem;color:#718096;line-height:1.7">Participant: <strong>${state.profile.pid}</strong><br>Data sent to: <strong>${state.profile.email}</strong><br>ESS score on file: <strong>${(state.epworth||{}).total??'—'}/24</strong></p>
+  </div>`;
+}
+
+function renderLog(){
+  const f=state.form;
+  return `
+  <button class="btn btn-secondary" id="btn_back" style="margin-bottom:1rem">← Back</button>
+  <h1>Today's sleep log</h1>
+  <p class="subtitle">Answer about the sleep you just had last night.</p>
+
+  <div class="card">
+    <div class="section-label">Sleep overview</div>
+    <div class="field">
+      <label>Approximately how many hours of sleep did you get last night?</label>
+      <input type="number" id="f_hours" min="0" max="24" step=".5" placeholder="e.g. 7.5" value="${f.hours||''}">
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>How many times did you wake up during the night?</label>
+        <input type="number" id="f_wakes" min="0" max="20" placeholder="0" value="${f.wakes||''}">
+      </div>
+      <div class="field">
+        <label>Total time awake during those times?</label>
+        <select id="f_waketime">
+          <option value="">Select...</option>
+          ${['None','Less than 10 min','10–20 min','21–30 min','31–45 min','46–60 min','More than 60 min'].map(o=>`<option${f.waketime===o?' selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Sleep quality sliders</div>
+    <p style="font-size:.82rem;color:#a0aec0;margin-bottom:1.25rem">Drag each slider to where it best describes your experience last night.</p>
+    ${VAS_FIELDS.map(v=>renderVAS(v)).join('')}
+  </div>
+
+  <div class="card">
+    <div class="section-label">Naps</div>
+    <div class="toggle-row">
+      <label class="toggle"><input type="checkbox" id="f_nap" ${state.nap?'checked':''}><span class="slider-tog"></span></label>
+      <span class="toggle-label">I napped yesterday</span>
+    </div>
+    ${state.nap?`<div class="field"><label>Total nap duration</label>
+      <select id="f_napdur">
+        <option value="">Select...</option>
+        ${['Less than 20 min','20–30 min','31–45 min','46–60 min','More than 60 min'].map(o=>`<option${f.napdur===o?' selected':''}>${o}</option>`).join('')}
+      </select></div>`:''}
+  </div>
+
+  <div class="card">
+    <div class="section-label">Sleep aids</div>
+    <div class="field">
+      <label>Did you take anything to help you sleep last night?</label>
+      <select id="f_sleepaid">
+        <option value="">Select...</option>
+        ${['No','Yes — over the counter (e.g. melatonin, Benadryl)','Yes — prescription medication','Yes — alcohol','Yes — other'].map(o=>`<option${f.sleepaid===o?' selected':''}>${o}</option>`).join('')}
+      </select>
+    </div>
+    ${f.sleepaid&&f.sleepaid!=='No'?`<div class="field"><label>Please specify (optional)</label><input type="text" id="f_sleepaiddetail" placeholder="e.g. 5mg melatonin" value="${f.sleepaiddetail||''}"></div>`:''}
+  </div>
+
+  <div id="submit_alert"></div>
+  <button class="btn btn-primary" id="btn_submit">Submit today's log →</button>`;
+}
+
+function renderVAS({key,label,lo,hi}){
+  const val=state.vas[key];
+  return `<div class="field">
+    <label>${label}</label>
+    <div class="vas-wrap">
+      <div class="vas-labels"><span>${lo}</span><span>${hi}</span></div>
+      <input type="range" class="vas" id="${key}" min="0" max="100" step="1" value="${val}" style="--pct:${val}%">
+      <div class="vas-val" id="${key}_val">${val}</div>
+    </div>
+  </div>`;
+}
+
+function renderDone(){
+  return `<div class="card complete-banner">
+    <div class="emoji">✅</div>
+    <h2>Entry saved!</h2>
+    <p>Your sleep data has been sent to your researcher. Come back tomorrow morning to log the next night.</p>
+    <button class="btn btn-primary" id="btn_home" style="margin-top:1.5rem">Back to home</button>
+  </div>`;
+}
+
+function updateAllSliders(){
+  VAS_FIELDS.forEach(({key})=>{
+    const el=document.getElementById(key);
+    if(!el) return;
+    const v=el.value;
+    el.style.setProperty('--pct',v+'%');
+    const lbl=document.getElementById(key+'_val');
+    if(lbl) lbl.textContent=v;
+  });
+}
+
+function attachEvents(){
+  document.getElementById('btn_profile')?.addEventListener('click',()=>{
+    const name=document.getElementById('f_name').value.trim();
+    const pid=document.getElementById('f_pid').value.trim();
+    const email=document.getElementById('f_email').value.trim();
+    if(!name||!pid||!email){showAlert('Please fill in all fields.','error');return}
+    if(!/\S+@\S+\.\S+/.test(email)){showAlert('Please enter a valid email.','error');return}
+    state.profile={name,pid,email,startDate:new Date().toISOString()};
+    save('slp_profile',state.profile);
+    state.screen='setup_epworth';render();
+  });
+
+  document.querySelectorAll('.chance-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      state.epworthAnswers[+btn.dataset.ei]=+btn.dataset.ev;render();
+    });
+  });
+
+  document.getElementById('btn_epworth')?.addEventListener('click',()=>{
+    const total=state.epworthAnswers.reduce((a,b)=>a+b,0);
+    state.epworth={answers:state.epworthAnswers,total};
+    save('slp_epworth',state.epworth);
+    sendEpworthEmail();
+    state.screen='home';render();
+  });
+
+  document.getElementById('btn_log')?.addEventListener('click',()=>{
+    state.form={hours:'',wakes:'',waketime:'',napdur:''};
+    state.vas={vas_onset:50,vas_cont:50,vas_restore:50};
+    state.nap=false;
+    state.screen='log';render();
+  });
+
+  document.getElementById('btn_back')?.addEventListener('click',()=>{state.screen='home';render()});
+  document.getElementById('btn_home')?.addEventListener('click',()=>{state.screen='home';render()});
+
+  document.getElementById('f_nap')?.addEventListener('change',e=>{
+    collectForm();state.nap=e.target.checked;render();
+  });
+
+  ['f_hours','f_wakes','f_waketime','f_napdur','f_sleepaid','f_sleepaiddetail'].forEach(id=>{
+    document.getElementById(id)?.addEventListener('change',e=>{
+      state.form[id.replace('f_','')]=e.target.value;
+    });
+  });
+
+  VAS_FIELDS.forEach(({key})=>{
+    const el=document.getElementById(key);
+    if(!el) return;
+    el.addEventListener('input',()=>{
+      state.vas[key]=+el.value;
+      el.style.setProperty('--pct',el.value+'%');
+      const lbl=document.getElementById(key+'_val');
+      if(lbl) lbl.textContent=el.value;
+    });
+  });
+
+  document.getElementById('btn_submit')?.addEventListener('click',submitLog);
+}
+
+function collectForm(){
+  ['f_hours','f_wakes','f_waketime','f_napdur','f_sleepaid','f_sleepaiddetail'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) state.form[id.replace('f_','')]=el.value;
+  });
+}
+
+function submitLog(){
+  collectForm();
+  const f=state.form;
+  if(!f.hours){
+    document.getElementById('submit_alert').innerHTML=`<div class="alert alert-error">Please enter how many hours of sleep you got.</div>`;return;
+  }
+  const dayNum=Object.keys(state.days).length+1;
+  const now=new Date();
+  const entry={
+    date:now.toLocaleDateString(),
+    submitTime:now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+    day:dayNum,
+    hours:f.hours,
+    wakes:f.wakes||'0',
+    waketime:f.waketime||'None',
+    vas_onset:state.vas.vas_onset,
+    vas_cont:state.vas.vas_cont,
+    vas_restore:state.vas.vas_restore,
+    vas_relative:state.vas.vas_relative,
+    vas_cognitive:state.vas.vas_cognitive,
+    vas_physical:state.vas.vas_physical,
+    nap:state.nap,
+    napdur:state.nap?f.napdur:'None',
+    sleepAid:f.sleepaid||'No',
+    sleepAidDetail:f.sleepaiddetail||'',
+    pid:state.profile.pid,
+    name:state.profile.name,
+  };
+  state.days[getTodayKey()]=entry;
+  save('slp_days',state.days);
+  sendDailyEmail(entry);
+  state.screen='done';render();
+}
+
+function getTodayKey(){
+  const d=new Date();
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function getDayKey(offset){
+  if(!state.profile?.startDate) return getTodayKey();
+  const d=new Date(state.profile.startDate);
+  d.setDate(d.getDate()+offset);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function sendEpworthEmail(){
+  if(EMAILJS_SERVICE==='YOUR_SERVICE_ID') return;
+  emailjs.init(EMAILJS_PUBLIC_KEY);
+  const p=state.profile,e=state.epworth;
+  const answers=EPWORTH.map((q,i)=>`${i+1}. ${q}: ${CHANCE[e.answers[i]]}`).join('\n');
+  emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE,{
+    to_email:p.email,
+    subject:`[Sleep Study] ESS Baseline — ${p.name} (${p.pid})`,
+    message:`Participant: ${p.name}\nID: ${p.pid}\nDate: ${new Date().toLocaleDateString()}\n\nEpworth Sleepiness Scale\nTotal Score: ${e.total}/24\n\n${answers}`
+  });
+}
+
+function sendDailyEmail(entry){
+  if(EMAILJS_SERVICE==='YOUR_SERVICE_ID') return;
+  emailjs.init(EMAILJS_PUBLIC_KEY);
+  const msg=`--- Entry Info ---
+Date: ${entry.date}
+Time submitted: ${entry.submitTime}
+Day: ${entry.day} of 14\n
+--- Sleep Overview ---
+Hours of sleep: ${entry.hours}
+Night awakenings: ${entry.wakes}
+Total wake time: ${entry.waketime}
+
+--- VAS Sliders (0–100) ---
+Time to fall asleep: ${entry.vas_onset} (0=instantly, 100=took hours)
+Sleep continuity: ${entry.vas_cont} (0=woke constantly, 100=slept straight through)
+Restoration: ${entry.vas_restore} (0=felt completely unrefreshed, 100=felt fully refreshed)
+Compared to typical night: ${entry.vas_relative} (0=much worse than usual, 100=much better than usual)
+Mental clarity: ${entry.vas_cognitive} (0=mentally foggy, 100=sharp and clear-headed)
+Physical restoration: ${entry.vas_physical} (0=body feels heavy and achy, 100=body feels light and recovered)
+
+--- Naps ---
+Napped yesterday: ${entry.nap?'Yes':'No'}${entry.nap?'\nNap duration: '+entry.napdur:''}
+
+--- Sleep Aids ---
+Took sleep aid: ${entry.sleepAid}${entry.sleepAidDetail?'\nDetails: '+entry.sleepAidDetail:''}`;
+  emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE,{
+    to_email:state.profile.email,
+    subject:`[Sleep Study] Day ${entry.day} — ${entry.name} (${entry.pid})`,
+    message:msg
+  });
+}
+
+function showAlert(msg,type){
+  state.alert={msg,type};render();
+  setTimeout(()=>{state.alert=null;render()},4000);
+}
+
+init();
+</script>
+</body>
+</html>
